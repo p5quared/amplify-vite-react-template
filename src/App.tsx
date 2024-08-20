@@ -18,22 +18,23 @@ function Board({ xIsNext, squares, onPlay, roomId }: any) {
 	console.count("subscribed")
 
 	const handleClick =  ((i: number) => {
-    if (calculateWinner(squares) || squares[i]) {
-      return;
-    }
-    const nextSquares = squares.slice();
-    if (xIsNext) {
-      nextSquares[i] = 'X';
-    } else {
-      nextSquares[i] = 'O';
-    }
-    onPlay(nextSquares);
-	console.log("publishing", roomId, nextSquares)
-	client.mutations.publish({
-		channelName: roomId,
-		content: JSON.stringify({squares: nextSquares, move: i})
+		if (calculateWinner(squares) || squares[i]) {
+		  return;
+		}
+		const nextSquares = squares.slice();
+		if (xIsNext) {
+		  nextSquares[i] = 'X';
+		} else {
+		  nextSquares[i] = 'O';
+		}
+
+		client.mutations.publish({
+			channelName: roomId,
+			content: JSON.stringify({squares: nextSquares, wasX: xIsNext})
+		})
+
+		onPlay(nextSquares);
 	})
-})
 
   const winner = calculateWinner(squares);
   let status;
@@ -63,7 +64,7 @@ function Board({ xIsNext, squares, onPlay, roomId }: any) {
   );
 }
 
-const Game = ({roomId}: any) => {
+const Game = ({roomId, isX}: any) => {
   const [history, setHistory] = useState([Array(9).fill(null)]);
   const [currentMove, setCurrentMove] = useState(0);
   const xIsNext = currentMove % 2 === 0;
@@ -78,7 +79,13 @@ const Game = ({roomId}: any) => {
   client.subscriptions.receive()
 	  .subscribe({
 		next: event => {
+			console.log(event)
 			if (roomId === event.channelName) {
+				// Skip our own move
+				if (JSON.parse(event.content).wasX === isX) {
+					console.log("Skipping own move")
+					return
+				}
 				handlePlay(JSON.parse(event.content).squares)
 			}
 		}
@@ -149,7 +156,7 @@ function App() {
 	: <>
 	<h1>Room {room}</h1>
 	<h3>{isRoomOwner ? "You are X" : "You are O"}</h3>
-	<Game roomId={room} />
+	<Game roomId={room} isX={isRoomOwner}/>
 	<button onClick={() => {setRoom("")}}>Return</button>
 	</>
 	}

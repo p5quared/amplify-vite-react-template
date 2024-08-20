@@ -142,16 +142,11 @@ function App() {
     <main>
 	{!room ? 
 		<>
+	<h1>The World's Greatest Tic Tac Toe</h1>
+	<p>Enter a room name to create or join a game</p>
 	<input value={roomInput} onChange={e => setRoomInput(e.target.value)} />
 	  <button onClick={createRoom}>Create Room</button>
 	  <button onClick={joinRoom}>Join Room </button>
-      <div>
-        🥳 App successfully hosted. Try creating a new todo.
-        <br />
-        <a href="https://docs.amplify.aws/react/start/quickstart/#make-frontend-updates">
-          Review next step of this tutorial.
-        </a>
-      </div>
 	  </>
 	: <>
 	<h1>Room {room}</h1>

@@ -78,7 +78,9 @@ const Game = ({roomId}: any) => {
   client.subscriptions.receive()
 	  .subscribe({
 		next: event => {
-			handlePlay(JSON.parse(event.content).squares)
+			if (roomId === event.channelName) {
+				handlePlay(JSON.parse(event.content).squares)
+			}
 		}
 	  }
 	)

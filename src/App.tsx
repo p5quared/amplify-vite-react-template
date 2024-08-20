@@ -1,42 +1,156 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { Schema } from "../amplify/data/resource";
 import { generateClient } from "aws-amplify/data";
-import { Authenticator } from '@aws-amplify/ui-react'
 import '@aws-amplify/ui-react/styles.css'
 
 const client = generateClient<Schema>();
 
-function App() {
-  const [todos, setTodos] = useState<Array<Schema["Todo"]["type"]>>([]);
 
-  useEffect(() => {
-    client.models.Todo.observeQuery().subscribe({
-      next: (data) => setTodos([...data.items]),
-    });
-  }, []);
+function Square({ value, onSquareClick }: any) {
+  return (
+    <button className="square" onClick={onSquareClick}>
+      {value}
+    </button>
+  );
+}
 
-  function createTodo() {
-    client.models.Todo.create({ content: window.prompt("Todo content") });
-  }
+function Board({ xIsNext, squares, onPlay, roomId }: any) {
+	console.count("subscribed")
 
-  function deleteTodo(id: string) {
-    client.models.Todo.delete({ id })
+	const handleClick =  ((i: number) => {
+    if (calculateWinner(squares) || squares[i]) {
+      return;
+    }
+    const nextSquares = squares.slice();
+    if (xIsNext) {
+      nextSquares[i] = 'X';
+    } else {
+      nextSquares[i] = 'O';
+    }
+    onPlay(nextSquares);
+	console.log("publishing", roomId, nextSquares)
+	client.mutations.publish({
+		channelName: roomId,
+		content: JSON.stringify({squares: nextSquares, move: i})
+	})
+})
+
+  const winner = calculateWinner(squares);
+  let status;
+  if (winner) {
+    status = 'Winner: ' + winner;
+  } else {
+    status = 'Next player: ' + (xIsNext ? 'X' : 'O');
   }
 
   return (
-	  <Authenticator>
-	  {({signOut, user}) => (
+    <>
+      <div className="status">{status}</div>
+      <div className="board-row">
+        <Square value={squares[0]} onSquareClick={() => handleClick(0)} />
+        <Square value={squares[1]} onSquareClick={() => handleClick(1)} />
+        <Square value={squares[2]} onSquareClick={() => handleClick(2)} />
+      </div>
+      <div className="board-row">
+        <Square value={squares[3]} onSquareClick={() => handleClick(3)} />
+        <Square value={squares[4]} onSquareClick={() => handleClick(4)} />
+        <Square value={squares[5]} onSquareClick={() => handleClick(5)} />
+      </div>
+      <div className="board-row">
+        <Square value={squares[6]} onSquareClick={() => handleClick(6)} />
+        <Square value={squares[7]} onSquareClick={() => handleClick(7)} />
+        <Square value={squares[8]} onSquareClick={() => handleClick(8)} />
+      </div>
+    </>
+  );
+}
+
+const Game = ({roomId}: any) => {
+  const [history, setHistory] = useState([Array(9).fill(null)]);
+  const [currentMove, setCurrentMove] = useState(0);
+  const xIsNext = currentMove % 2 === 0;
+  const currentSquares = history[currentMove];
+
+  function handlePlay(nextSquares: any) {
+    const nextHistory = [...history.slice(0, currentMove + 1), nextSquares];
+    setHistory(nextHistory);
+    setCurrentMove(nextHistory.length - 1);
+  }
+
+  client.subscriptions.receive()
+	  .subscribe({
+		next: event => {
+			handlePlay(JSON.parse(event.content).squares)
+		}
+	  }
+	)
+
+
+  return (
+    <div className="game">
+      <div className="game-board">
+        <Board xIsNext={xIsNext} roomId={roomId} squares={currentSquares} onPlay={handlePlay} />
+      </div>
+    </div>
+  );
+}
+
+function calculateWinner(squares: any) {
+  const lines = [
+    [0, 1, 2],
+    [3, 4, 5],
+    [6, 7, 8],
+    [0, 3, 6],
+    [1, 4, 7],
+    [2, 5, 8],
+    [0, 4, 8],
+    [2, 4, 6],
+  ];
+  for (let i = 0; i < lines.length; i++) {
+    const [a, b, c] = lines[i];
+    if (squares[a] && squares[a] === squares[b] && squares[a] === squares[c]) {
+      return squares[a];
+    }
+  }
+  return null;
+}
+
+
+
+function App() {
+  const [room, setRoom] = useState<String | undefined>(undefined)
+
+  const receive = () => client.subscriptions.receive()
+	  .subscribe({
+		next: event => {
+			console.log(event)
+			if (room === event.channelName) {
+
+			}
+		}
+	  }
+	)
+
+	const [roomInput, setRoomInput] = useState<string>("")
+	const [isRoomOwner, setIsRoomOwner] = useState<boolean>(false)
+	const createRoom = () => {
+		setRoom(roomInput)
+		setIsRoomOwner(true)
+		alert(`Room ${roomInput} created`)
+	}
+	const joinRoom = () => {
+		setRoom(roomInput)
+		alert(`Room ${roomInput} joined`)
+	}
+
+  return (
     <main>
-      <h1>{user?.signInDetails?.loginId}'s todos</h1>
-      <button onClick={createTodo}>+ new</button>
-      <ul>
-        {todos.map((todo) => (
-          <li
-		  onClick={() => deleteTodo(todo.id)}
-		  key={todo.id}>{todo.content}
-		  </li>
-        ))}
-      </ul>
+	{!room ? 
+		<>
+	<input value={roomInput} onChange={e => setRoomInput(e.target.value)} />
+	  <button onClick={createRoom}>Create Room</button>
+	  <button onClick={joinRoom}>Join Room </button>
+	  <button onClick={receive}>Receive</button>
       <div>
         🥳 App successfully hosted. Try creating a new todo.
         <br />
@@ -44,10 +158,15 @@ function App() {
           Review next step of this tutorial.
         </a>
       </div>
-	  <button onClick={signOut}>Sign Out</button>
+	  </>
+	: <>
+	<h1>Room {room}</h1>
+	<h3>{isRoomOwner ? "You are X" : "You are O"}</h3>
+	<Game roomId={room} />
+	<button onClick={() => {setRoom("")}}>Return</button>
+	</>
+	}
     </main>
-	  )}
-	</Authenticator>
   );
 }
 

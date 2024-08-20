@@ -39,8 +39,6 @@ function Board({ xIsNext, squares, onPlay, roomId }: any) {
   let status;
   if (winner) {
     status = 'Winner: ' + winner;
-  } else {
-    status = 'Next player: ' + (xIsNext ? 'X' : 'O');
   }
 
   return (
@@ -119,18 +117,6 @@ function calculateWinner(squares: any) {
 
 function App() {
   const [room, setRoom] = useState<String | undefined>(undefined)
-
-  const receive = () => client.subscriptions.receive()
-	  .subscribe({
-		next: event => {
-			console.log(event)
-			if (room === event.channelName) {
-
-			}
-		}
-	  }
-	)
-
 	const [roomInput, setRoomInput] = useState<string>("")
 	const [isRoomOwner, setIsRoomOwner] = useState<boolean>(false)
 	const createRoom = () => {
@@ -150,7 +136,6 @@ function App() {
 	<input value={roomInput} onChange={e => setRoomInput(e.target.value)} />
 	  <button onClick={createRoom}>Create Room</button>
 	  <button onClick={joinRoom}>Join Room </button>
-	  <button onClick={receive}>Receive</button>
       <div>
         🥳 App successfully hosted. Try creating a new todo.
         <br />
